@@ -27,18 +27,21 @@ ToDo:
 PIN LAYOUT:
 
 Gyro uses:
+
 	*3.3V
 	*GND
 	*A4 (I2c)
 	*A5 (I2c)
 
 Bluetooth uses:
+
 	*3.3V
 	*GND
 	*D0(RX)
 	*D1(TX)
 
 Motor shield uses:
+
 	*D2 - Motor 1 direction input A
 	*D4 - Motor 1 direction input B
 	*D6 - Motor 1 enable input/fault output
@@ -52,6 +55,7 @@ Motor shield uses:
 	*MUST share a common ground with Arduino
 
 Encoders use:
+
 	*TBA!
 	
 Comments:
