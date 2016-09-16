@@ -2,13 +2,13 @@
 A (semi)self-driving (fully)self-balancing robot
 
 ToDo:
+
 	*figure out a way (electronical preffered, mechanically different connections otherwise) to connect UNO and motor driver as a shield while still being able to use pin 2)
 	EDIT: found a neat mechanical and aesthetical way to choose which pins to use
 	*Gyro calibration offsets (MPU6050): acelX acelY acelZ giroX giroY giroZ -88	-290	2279	-599	39	15
 	*Print out a good prototype chassis
 	*Get the motors
 	*Add encoder pin layout to PIN LAYOUT
-	
 	*Write simple code that keeps the robot upright
 	*Write simple code that enables for the robot to drive forward/backward, turn right and left
 	*Write a code for controlling the robot via bluetooth with Android
@@ -19,7 +19,8 @@ ToDo:
 	
 	*Put a glass of water on robot and drive so
 	
-	*Done for now! Next step?
+	
+Done for now! Next step?
 	
 
 
