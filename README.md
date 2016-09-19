@@ -7,7 +7,6 @@ ToDo:
 	EDIT: found a neat mechanical and aesthetical way to choose which pins to use
 	*Gyro calibration offsets (MPU6050): acelX acelY acelZ giroX giroY giroZ -88	-290	2279	-599	39	15
 	*Print out a good prototype chassis
-	*Get the motors
 	*Add encoder pin layout to PIN LAYOUT
 	*Write simple code that keeps the robot upright
 	*Write simple code that enables for the robot to drive forward/backward, turn right and left
@@ -29,8 +28,8 @@ PIN LAYOUT:
 	
 		*3.3V
 		*GND
-		*A4 (I2c)
-		*A5 (I2c)
+		*A4 (I2c) SDA
+		*A5 (I2c) SCL
 	
 	Bluetooth uses:
 	
@@ -43,14 +42,14 @@ PIN LAYOUT:
 	
 		*D2 - Motor 1 direction input A
 		*D4 - Motor 1 direction input B
-		*D6 - Motor 1 enable input/fault output
+		*D6 - Motor 1 enable input/fault output - NOT USED
 		*D7 - Motor 2 direction input A
 		*D8 - Motor 2 direction input B
 		*D9 - Motor 1 speed input
 		*D10 - Motor 2 speed input
-		*D12 - Motor 2 enable input/fault output
-		*A0 - Motor 1 current sense output
-		*A1 Motor 2 current sense output
+		*D12 - Motor 2 enable input/fault output - NOT USED
+		*A0 - Motor 1 current sense output - NOT USED
+		*A1 Motor 2 current sense output - NOT USED
 		*MUST share a common ground with Arduino
 	
 	Encoders use:
