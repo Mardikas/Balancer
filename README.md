@@ -8,6 +8,7 @@ ToDo:
 	*Gyro calibration offsets (MPU6050): acelX acelY acelZ giroX giroY giroZ -88	-290	2279	-599	39	15
 	*Print out a good prototype chassis
 	*Add encoder pin layout to PIN LAYOUT
+	*Write a motor library (since default library doesn't work)
 	*Write simple code that keeps the robot upright
 	*Write simple code that enables for the robot to drive forward/backward, turn right and left
 	*Write a code for controlling the robot via bluetooth with Android
@@ -42,12 +43,12 @@ PIN LAYOUT:
 	
 		*D2 - Motor 1 direction input A
 		*D4 - Motor 1 direction input B
-		*D6 - Motor 1 enable input/fault output - NOT USED
+		*D6 - Motor 1 enable input/fault output
 		*D7 - Motor 2 direction input A
 		*D8 - Motor 2 direction input B
 		*D9 - Motor 1 speed input
 		*D10 - Motor 2 speed input
-		*D12 - Motor 2 enable input/fault output - NOT USED
+		*D12 - Motor 2 enable input/fault output
 		*A0 - Motor 1 current sense output - NOT USED
 		*A1 Motor 2 current sense output - NOT USED
 		*MUST share a common ground with Arduino
@@ -56,5 +57,8 @@ PIN LAYOUT:
 	
 		*TBA!
 		
-	Comments:
-	Most pins on motor driver are not required, and all but PWM pins can be remapped (and even those, if deemed necessary). This has to be taken into consideration when choosing distance sensors. If currentSensing is not used, it is possible to use up to 4 distance traditional, analogRead sensors. If more are deemed necessary, other type of connection will be required for sensors.
+
+Sources:
+	High frequency PWM:
+		http://forum.arduino.cc/index.php/topic,117425.0.html
+	
