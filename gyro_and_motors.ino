@@ -1,5 +1,5 @@
 //Somewhat ok PID settings: 9;10;500
-//
+//Even more stable: 16;50;(?)500(?)
 
 #include <PWM.h>
 
@@ -69,9 +69,9 @@ void setup() {
 init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
-P_gain=9;
-D_gain=10;
-I_gain=500;
+P_gain=8;
+D_gain=14;
+I_gain=1000000;
 
 offset=100;
    Serial.begin(9600);
@@ -122,6 +122,26 @@ void loop() {
             mpu.dmpGetQuaternion(&q, fifoBuffer);
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+            
+        P=(ypr[1]-(10/offset))*100 ;
+        I = I + last_P;
+        D=P-last_P;
+        if(P > 3 && P < 3) I = 0;
+        if(I > 200) I = 200;
+        if(I < -200) I = -200;
+        speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
+        
+        D=P-last_P;
+        //error=(((P*P_GAIN)+(D*D_GAIN))/10);
+        
+        //speed=map(error, -1000, 1000, -255, 255);
+        if(ypr[1]>1||ypr[1]<(-1)){
+          setSpeeds(0,0);
+        }
+        else{
+         setSpeeds(speed, speed);
+        }
+        last_P = P;
     }
 
     
@@ -131,25 +151,6 @@ void loop() {
 //calculate PID
   
 
-  P=(ypr[1]-(10/offset))*100 ;
-  I = I + last_P;
-  D=P-last_P;
-  if(P > 3 && P < 3) I = 0;
-  if(I > 200) I = 200;
-  if(I < -200) I = -200;
-  speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
-  
-  D=P-last_P;
-  //error=(((P*P_GAIN)+(D*D_GAIN))/10);
-  
-  //speed=map(error, -1000, 1000, -255, 255);
-  if(ypr[1]>1||ypr[1]<(-1)){
-    setSpeeds(0,0);
-  }
-  else{
-   setSpeeds(speed, speed);
-  }
-  last_P = P;
 }
 
 
