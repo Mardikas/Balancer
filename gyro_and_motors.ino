@@ -1,3 +1,6 @@
+//Somewhat ok PID settings: 9;10;500
+//
+
 #include <PWM.h>
 
 #include "I2Cdev.h"
@@ -12,6 +15,9 @@
 #endif
 
 #define MAX 255
+#define ANGLE_MECHANICAL_CALIBRATION 0.1
+#define P_GAIN 18 //80;150 on somewhat twerking
+#define D_GAIN 1000
 
 MPU6050 mpu;
 
@@ -50,13 +56,60 @@ int motor2_dirA=7;
 int motor2_dirB=8;
 int motor2_EN=12;
 
+int error, P, D, last_P;
+long I = 0;
+int speed;
+
+int I_gain, P_gain, D_gain;
+char buff[4];
+int offset;
+
 void setup() {
   // put your setup code here, to run once:
 init_motors();
    gyro_init();
+   P=I=D=error=last_P=0;
+P_gain=8;
+D_gain=14;
+I_gain=1000000;
+
+offset=100;
+   Serial.begin(9600);
 }
 
+
+
+
+
+
+
 void loop() {
+  delay(1);
+
+    if(Serial.available()>2){
+      buff[0]=Serial.read();
+      if(buff[0]=='p'){
+        P_gain=Serial.parseInt();
+        Serial.print("P_gain set to ");
+        Serial.println(P_gain);
+      }
+      else if(buff[0]=='d'){
+        D_gain=Serial.parseInt();
+        Serial.print("D_gain set to ");
+        Serial.println(D_gain);
+      }
+      else if(buff[0]=='i'){
+        I_gain=Serial.parseInt();
+        Serial.print("I_gain set to ");
+        Serial.println(I_gain);
+      }
+      if(buff[0]=='o'){
+        offset=Serial.parseInt();
+        Serial.print("offset set to ");
+        Serial.println(offset);
+      }
+  }
+  
   // put your main code here, to run repeatedly:
       mpuIntStatus = mpu.getIntStatus();
     fifoCount = mpu.getFIFOCount();
@@ -69,27 +122,63 @@ void loop() {
             mpu.dmpGetQuaternion(&q, fifoBuffer);
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-            Serial.print("ypr\t");
-            Serial.print(ypr[0] * 180/M_PI);
-            Serial.print("\t");
-            Serial.print(ypr[1] * 180/M_PI);
-            Serial.print("\t");
-            Serial.print(ypr[1]);
-            Serial.print("\t");
-            Serial.println(ypr[2] * 180/M_PI);
     }
 
     
   digitalWrite(motor1_EN, HIGH);
-digitalWrite(motor2_EN, HIGH);
-if(ypr[1]>1||ypr[1]<(-1)){
-  setSpeeds(0,0);
+  digitalWrite(motor2_EN, HIGH);
+
+//calculate PID
+  
+
+  P=(ypr[1]-(10/offset))*100 ;
+  I = I + last_P;
+  D=P-last_P;
+  if(P > 3 && P < 3) I = 0;
+  if(I > 200) I = 200;
+  if(I < -200) I = -200;
+  speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
+  
+  D=P-last_P;
+  //error=(((P*P_GAIN)+(D*D_GAIN))/10);
+  
+  //speed=map(error, -1000, 1000, -255, 255);
+  if(ypr[1]>1||ypr[1]<(-1)){
+    setSpeeds(0,0);
+  }
+  else{
+   setSpeeds(speed, speed);
+  }
+  last_P = P;
 }
-else{
-  int vel=((ypr[1]-0.1)*800);
- setSpeeds(vel, vel);
-}
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void init_motors()
 {
@@ -118,6 +207,7 @@ void setM1Speed(int speed){
   if(speed>MAX){
     speed=MAX;
   }
+  
   if(speed==0){
     digitalWrite(motor1_dirA, LOW);
     digitalWrite(motor1_dirB, LOW);
