@@ -69,9 +69,9 @@ void setup() {
 init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
-P_gain=8;
-D_gain=14;
-I_gain=1000000;
+P_gain=9;
+D_gain=10;
+I_gain=500;
 
 offset=100;
    Serial.begin(9600);
