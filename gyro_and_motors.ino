@@ -1,5 +1,6 @@
 //Somewhat ok PID settings: 9;10;500
 //Even more stable: 16;50;(?)500(?)
+//way better PID settings: 15;100;50
 
 #include <PWM.h>
 
@@ -173,8 +174,16 @@ void loop() {
         if(P > 3 && P < 3) I = 0;
         if(I > 200) I = 200;
         if(I < -200) I = -200;
-        speed = (P*P_gain + (I*100)/I_gain + D*D_gain)+dir;
-        
+        speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
+        /*if(speed>100){
+            P=(ypr[1]-(10/offset))*100+dir ;
+            I = I + last_P;
+            D=P-last_P;
+            if(P > 3 && P < 3) I = 0;
+            if(I > 200) I = 200;
+            if(I < -200) I = -200;
+            speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
+        }*/
         D=P-last_P;
         //error=(((P*P_GAIN)+(D*D_GAIN))/10);
         
