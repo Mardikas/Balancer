@@ -75,9 +75,9 @@ void setup() {
 init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
-P_gain=16;
+P_gain=15;
 D_gain=50;
-I_gain=1000000;
+I_gain=100;
 dir=0;
 turn=0;
 turn_amount=100;
@@ -134,23 +134,15 @@ void loop() {
             Serial.print("Direction amount set to 0");
           }
       }
-                else{
-             if(buff[0]=='f'){
-        dir=direction_amount;
+      else{
+        if(buff[0]=='f'){
+        dir=Serial.parseInt();
+        dir=map(dir, -150, 150, -6, 6);
+        turn=Serial.parseInt();
+        turn=-turn;
         controller_rst_timer=millis();
       }
-      else if(buff[0]=='b'){
-        dir=-direction_amount;
-        controller_rst_timer=millis();
-      }
-      else if(buff[0]=='r'){
-        turn=turn_amount;
-        controller_rst_timer=millis();
-      }
-      else if(buff[0]=='l'){
-        turn=-turn_amount;
-        controller_rst_timer=millis();
-      }
+
           }
       
   }
