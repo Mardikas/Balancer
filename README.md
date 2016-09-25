@@ -8,10 +8,11 @@ ToDo:
 	*Gyro calibration offsets (MPU6050): acelX acelY acelZ giroX giroY giroZ -88	-290	2279	-599	39	15
 	*Print out a good prototype chassis
 	*Add encoder pin layout to PIN LAYOUT
-	*Write a motor library (since default library doesn't work)
-	*Write simple code that keeps the robot upright
-	*Write simple code that enables for the robot to drive forward/backward, turn right and left
-	*Write a code for controlling the robot via bluetooth with Android
+	*Done:
+		*Write a motor library (since default library doesn't work) //have implemented motor functions, but not in a separate library
+		*Write simple code that keeps the robot upright //done more or less, perhaps needs even more fine tuning
+		*Write simple code that enables for the robot to drive forward/backward, turn right and left //done, works semi-ok
+		*Write a code for controlling the robot via bluetooth with Android //DONE!
 	*Write a code for using encoders to keep speed/balance better; make balancing and driving code more ergonomical&better
 	*Write code for mapping and then reproducing path
 	*Write code for autonomous drive on a table withouth falling off nor bumping into obstacles
