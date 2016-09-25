@@ -63,16 +63,24 @@ int speed;
 int I_gain, P_gain, D_gain;
 char buff[4];
 int offset;
+int turn;
+int dir;
+int turn_amount;
+int direction_amount;
+unsigned long controller_rst_timer;
 
 void setup() {
   // put your setup code here, to run once:
 init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
-P_gain=8;
-D_gain=14;
+P_gain=16;
+D_gain=50;
 I_gain=1000000;
-
+dir=0;
+turn=0;
+turn_amount=100;
+direction_amount=5;
 offset=100;
    Serial.begin(9600);
 }
@@ -88,26 +96,62 @@ void loop() {
 
     if(Serial.available()>2){
       buff[0]=Serial.read();
-      if(buff[0]=='p'){
-        P_gain=Serial.parseInt();
-        Serial.print("P_gain set to ");
-        Serial.println(P_gain);
+      if(buff[0]=='s'){
+        buff[0]=Serial.read();
+          if(buff[0]=='p'){
+          P_gain=Serial.parseInt();
+          Serial.print("P_gain set to ");
+          Serial.println(P_gain);
+          }
+          else if(buff[0]=='d'){
+            D_gain=Serial.parseInt();
+            Serial.print("D_gain set to ");
+            Serial.println(D_gain);
+          }
+          else if(buff[0]=='i'){
+            I_gain=Serial.parseInt();
+            Serial.print("I_gain set to ");
+            Serial.println(I_gain);
+          }
+          else if(buff[0]=='o'){
+            offset=Serial.parseInt();
+            Serial.print("offset set to ");
+            Serial.println(offset);
+          }
+          else if(buff[0]=='l'||buff[0]=='r'){
+            turn_amount=Serial.parseInt();
+            Serial.print("Turn amount set to ");
+            Serial.println(turn_amount);
+          }
+          else if(buff[0]=='f'||buff[0]=='b'){
+            direction_amount=Serial.parseInt();
+            Serial.print("Direction amount set to ");
+            Serial.println(direction_amount);
+          } 
+          else if(buff[0]=='z'){
+            direction_amount=0;
+            Serial.print("Direction amount set to 0");
+          }
       }
-      else if(buff[0]=='d'){
-        D_gain=Serial.parseInt();
-        Serial.print("D_gain set to ");
-        Serial.println(D_gain);
+                else{
+             if(buff[0]=='f'){
+        dir=direction_amount;
+        controller_rst_timer=millis();
       }
-      else if(buff[0]=='i'){
-        I_gain=Serial.parseInt();
-        Serial.print("I_gain set to ");
-        Serial.println(I_gain);
+      else if(buff[0]=='b'){
+        dir=-direction_amount;
+        controller_rst_timer=millis();
       }
-      if(buff[0]=='o'){
-        offset=Serial.parseInt();
-        Serial.print("offset set to ");
-        Serial.println(offset);
+      else if(buff[0]=='r'){
+        turn=turn_amount;
+        controller_rst_timer=millis();
       }
+      else if(buff[0]=='l'){
+        turn=-turn_amount;
+        controller_rst_timer=millis();
+      }
+          }
+      
   }
   
   // put your main code here, to run repeatedly:
@@ -123,13 +167,13 @@ void loop() {
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
             
-        P=(ypr[1]-(10/offset))*100 ;
+        P=(ypr[1]-(10/offset))*100+dir ;
         I = I + last_P;
         D=P-last_P;
         if(P > 3 && P < 3) I = 0;
         if(I > 200) I = 200;
         if(I < -200) I = -200;
-        speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
+        speed = (P*P_gain + (I*100)/I_gain + D*D_gain)+dir;
         
         D=P-last_P;
         //error=(((P*P_GAIN)+(D*D_GAIN))/10);
@@ -139,9 +183,13 @@ void loop() {
           setSpeeds(0,0);
         }
         else{
-         setSpeeds(speed, speed);
+         setSpeeds(speed-turn, speed+turn);
         }
         last_P = P;
+        if(millis()-controller_rst_timer>200){
+          //dir=0;
+          turn=0;
+        }
     }
 
     
