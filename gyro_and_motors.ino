@@ -136,10 +136,11 @@ void loop() {
       }
       else{
         if(buff[0]=='f'){
-        dir=Serial.parseInt();
-        dir=map(dir, -150, 150, -6, 6);
         turn=Serial.parseInt();
         turn=-turn;
+        dir=Serial.parseInt();
+        dir=map(dir, -150, 150, -6, 6);
+
         controller_rst_timer=millis();
       }
 
