@@ -4,6 +4,7 @@ A (semi)self-driving (fully)self-balancing robot
 Different PIDs:
 
 	40;140;20 <--super stiff, but fails with strong tilts (overcompensates);
+	40,90,80 <-- also quite stiff, does not overcompensate;
 	
 	
 ToDo:
