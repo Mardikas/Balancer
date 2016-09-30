@@ -8,6 +8,7 @@ Different PIDs:
 	
 ToDo:
 
+	*Enable zeroing function for setpoint finding, so that when the machine stops for long enough, it will not start drifting in the other direction.
 	*figure out a way (electronical preffered, mechanically different connections otherwise) to connect UNO and motor driver as a shield while still being able to use pin 2)
 	EDIT: found a neat mechanical and aesthetical way to choose which pins to use
 	*Gyro calibration offsets (MPU6050): acelX acelY acelZ giroX giroY giroZ -88	-290	2279	-599	39	15
