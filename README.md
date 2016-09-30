@@ -1,6 +1,11 @@
 # Balancer
 A (semi)self-driving (fully)self-balancing robot
 
+Different PIDs:
+
+	40;140;20 <--super stiff, but fails with strong tilts (overcompensates);
+	
+	
 ToDo:
 
 	*figure out a way (electronical preffered, mechanically different connections otherwise) to connect UNO and motor driver as a shield while still being able to use pin 2)
