@@ -63,11 +63,13 @@ int speed;
 
 int I_gain, P_gain, D_gain;
 char buff[4];
-int offset;
+float offset;
 int turn;
 int dir;
 int turn_amount;
 int direction_amount;
+int remap_counter;
+float setpoint_offset=0;
 unsigned long controller_rst_timer;
 
 void setup() {
@@ -75,14 +77,14 @@ void setup() {
 init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
-P_gain=15;
-D_gain=50;
-I_gain=100;
+P_gain=20;
+D_gain=60;
+I_gain=150;
 dir=0;
 turn=0;
 turn_amount=100;
 direction_amount=5;
-offset=100;
+remap_counter=0;
    Serial.begin(9600);
 }
 
@@ -97,6 +99,14 @@ void loop() {
 
     if(Serial.available()>2){
       buff[0]=Serial.read();
+      if(buff[0]=='d'){
+        turn=Serial.parseInt();
+        turn=-turn;
+        dir=Serial.parseInt();
+        dir=map(dir, -150, 150, -6, 6);
+      }
+    else{
+       
       if(buff[0]=='s'){
         buff[0]=Serial.read();
           if(buff[0]=='p'){
@@ -134,18 +144,7 @@ void loop() {
             Serial.print("Direction amount set to 0");
           }
       }
-      else{
-        if(buff[0]=='f'){
-        turn=Serial.parseInt();
-        turn=-turn;
-        dir=Serial.parseInt();
-        dir=map(dir, -150, 150, -6, 6);
-
-        controller_rst_timer=millis();
-      }
-
-          }
-      
+    }     
   }
   
   // put your main code here, to run repeatedly:
@@ -161,13 +160,51 @@ void loop() {
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
             
-        P=(ypr[1]-(10/offset))*100+dir ;
+        P=(ypr[2]+(setpoint_offset))*100+dir;
+
+        //calculate setpoint remapping
+        
+
+        
         I = I + last_P;
         D=P-last_P;
         if(P > 3 && P < 3) I = 0;
-        if(I > 200) I = 200;
-        if(I < -200) I = -200;
+        if(I > 200) I = 50;
+        if(I < -200) I = -50;
         speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
+        /*if(speed>0){
+          remap_counter++;
+        }
+        else if(speed<0){
+          remap_counter--;
+        }
+        if(remap_counter>10){
+          setpoint_offset=setpoint_offset+0.01;
+          remap_counter=0;
+        }
+        else if(remap_counter<-10){
+          setpoint_offset=setpoint_offset-0.01;
+          remap_counter=0;
+        }*/
+        
+        if(speed>0){
+          remap_counter++;
+        }
+        else if(speed<0){
+          remap_counter--;
+        }
+        
+        
+        //remap_counter=remap_counter+(speed/100);
+        if(remap_counter>50){
+          setpoint_offset=setpoint_offset+0.01;
+          remap_counter=0;
+        }
+        else if(remap_counter<-50){
+          setpoint_offset=setpoint_offset-0.01;
+          remap_counter=0;
+        }
+        
         /*if(speed>100){
             P=(ypr[1]-(10/offset))*100+dir ;
             I = I + last_P;
@@ -177,11 +214,11 @@ void loop() {
             if(I < -200) I = -200;
             speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
         }*/
-        D=P-last_P;
         //error=(((P*P_GAIN)+(D*D_GAIN))/10);
         
         //speed=map(error, -1000, 1000, -255, 255);
-        if(ypr[1]>1||ypr[1]<(-1)){
+        if(ypr[2]>1||ypr[2]<(-1)){
+          setpoint_offset=0;
           setSpeeds(0,0);
         }
         else{
@@ -343,7 +380,7 @@ void gyro_init(){
     #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
         Fastwire::setup(400, true);
     #endif
-    Serial.begin(115200);
+    Serial.begin(9600);
     mpu.initialize();
 
     Serial.println(F("Initializing DMP..."));
