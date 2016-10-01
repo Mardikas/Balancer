@@ -83,7 +83,7 @@ int dir;
 int turn_amount;
 int direction_amount;
 int remap_counter=0;
-int remap_limit=5;
+int remap_limit=100;
 float setpoint_offset=0;
 unsigned long controller_rst_timer;
 
@@ -92,9 +92,9 @@ void setup() {
 init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
-P_gain=40;
-D_gain=90;
-I_gain=80;
+P_gain=10;
+D_gain=50;
+I_gain=300;
 dir=0;
 turn=0;
 turn_amount=100;
@@ -324,7 +324,7 @@ void receive_data(){
             direction_amount=0;
             Serial.print("Direction amount set to 0");
           }
-          else if(buff[0]=='l'){
+          else if(buff[0]=='s'){
             remap_limit=Serial.parseInt();
             Serial.print("remap limit set to");
             Serial.println(remap_limit);
@@ -405,12 +405,12 @@ void calc_setpoint_PID(){
    else if(speed<0){
       remap_counter--;
      }
-     /*//second option for calc. setpoint:
+     //second option for calc. setpoint:
       
       remap_counter=remap_counter+speed;
 
       if(remap_counter>remap_limit){
-        setpoint_offset=settpoint_offset+0.01;
+        setpoint_offset=setpoint_offset+0.01;
         remap_counter=0;
       }
       if(remap_counter<-remap_limit){
@@ -418,7 +418,7 @@ void calc_setpoint_PID(){
         remap_counter=0;
       }
       
-      */
+      /*
           if(remap_counter>remap_limit){
           setpoint_offset=setpoint_offset+0.01;
           remap_counter=0;
@@ -427,5 +427,5 @@ void calc_setpoint_PID(){
           setpoint_offset=setpoint_offset-0.01;
           remap_counter=0;
         }
-        
+        */
 }
