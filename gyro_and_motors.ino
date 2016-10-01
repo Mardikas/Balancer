@@ -37,6 +37,9 @@ VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measure
 VectorFloat gravity;    // [x, y, z]            gravity vector
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
+
+//ALL FUNCTIONS USED
+
 void init_motors();
 void setM1Speed(int speed); // Set speed for M1.
 void setM2Speed(int speed); // Set speed for M2.
@@ -46,6 +49,14 @@ void setM2Brake(int brake); // Brake M2.
 void setBrakes(int m1Brake, int m2Brake);
 
 void gyro_init();
+
+void calc_balance_PID();
+void calc_setpoint_PID();
+
+void receive_data();
+
+//END OF FUNCTIONS
+
 
 int motor1=9;
 int motor1_dirA=2;
@@ -57,9 +68,12 @@ int motor2_dirA=7;
 int motor2_dirB=8;
 int motor2_EN=12;
 
+int motor_left=0;
+int motor_right=0;
+
 int error, P, D, last_P;
 long I = 0;
-int speed;
+int speed=0;
 
 int I_gain, P_gain, D_gain;
 char buff[4];
@@ -68,7 +82,8 @@ int turn;
 int dir;
 int turn_amount;
 int direction_amount;
-int remap_counter;
+int remap_counter=0;
+int remap_limit=5;
 float setpoint_offset=0;
 unsigned long controller_rst_timer;
 
@@ -77,14 +92,13 @@ void setup() {
 init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
-P_gain=20;
-D_gain=60;
-I_gain=150;
+P_gain=40;
+D_gain=90;
+I_gain=80;
 dir=0;
 turn=0;
 turn_amount=100;
 direction_amount=5;
-remap_counter=0;
    Serial.begin(9600);
 }
 
@@ -96,56 +110,8 @@ remap_counter=0;
 
 void loop() {
   delay(1);
+    receive_data();
 
-    if(Serial.available()>2){
-      buff[0]=Serial.read();
-      if(buff[0]=='d'){
-        turn=Serial.parseInt();
-        turn=-turn;
-        dir=Serial.parseInt();
-        dir=map(dir, -150, 150, -6, 6);
-      }
-    else{
-       
-      if(buff[0]=='s'){
-        buff[0]=Serial.read();
-          if(buff[0]=='p'){
-          P_gain=Serial.parseInt();
-          Serial.print("P_gain set to ");
-          Serial.println(P_gain);
-          }
-          else if(buff[0]=='d'){
-            D_gain=Serial.parseInt();
-            Serial.print("D_gain set to ");
-            Serial.println(D_gain);
-          }
-          else if(buff[0]=='i'){
-            I_gain=Serial.parseInt();
-            Serial.print("I_gain set to ");
-            Serial.println(I_gain);
-          }
-          else if(buff[0]=='o'){
-            offset=Serial.parseInt();
-            Serial.print("offset set to ");
-            Serial.println(offset);
-          }
-          else if(buff[0]=='l'||buff[0]=='r'){
-            turn_amount=Serial.parseInt();
-            Serial.print("Turn amount set to ");
-            Serial.println(turn_amount);
-          }
-          else if(buff[0]=='f'||buff[0]=='b'){
-            direction_amount=Serial.parseInt();
-            Serial.print("Direction amount set to ");
-            Serial.println(direction_amount);
-          } 
-          else if(buff[0]=='z'){
-            direction_amount=0;
-            Serial.print("Direction amount set to 0");
-          }
-      }
-    }     
-  }
   
   // put your main code here, to run repeatedly:
       mpuIntStatus = mpu.getIntStatus();
@@ -160,18 +126,17 @@ void loop() {
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
             
-        P=(ypr[2]+(setpoint_offset))*100+dir;
-
-        //calculate setpoint remapping
         
+        if(ypr[2]>1||ypr[2]<(-1)){
+          setpoint_offset=0;
+          setSpeeds(0,0);
+        }
+        else{
+          calc_balance_PID();
+          calc_setpoint_PID();
+          setSpeeds(motor_left, motor_right);
+        }
 
-        
-        I = I + last_P;
-        D=P-last_P;
-        if(P > 3 && P < 3) I = 0;
-        if(I > 200) I = 50;
-        if(I < -200) I = -50;
-        speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
         /*if(speed>0){
           remap_counter++;
         }
@@ -187,23 +152,10 @@ void loop() {
           remap_counter=0;
         }*/
         
-        if(speed>0){
-          remap_counter++;
-        }
-        else if(speed<0){
-          remap_counter--;
-        }
-        
+
         
         //remap_counter=remap_counter+(speed/100);
-        if(remap_counter>50){
-          setpoint_offset=setpoint_offset+0.01;
-          remap_counter=0;
-        }
-        else if(remap_counter<-50){
-          setpoint_offset=setpoint_offset-0.01;
-          remap_counter=0;
-        }
+
         
         /*if(speed>100){
             P=(ypr[1]-(10/offset))*100+dir ;
@@ -217,56 +169,16 @@ void loop() {
         //error=(((P*P_GAIN)+(D*D_GAIN))/10);
         
         //speed=map(error, -1000, 1000, -255, 255);
-        if(ypr[2]>1||ypr[2]<(-1)){
-          setpoint_offset=0;
-          setSpeeds(0,0);
-        }
-        else{
-         setSpeeds(speed-turn, speed+turn);
-        }
-        last_P = P;
-        if(millis()-controller_rst_timer>200){
-          //dir=0;
-          turn=0;
-        }
-    }
 
-    
+    }
   digitalWrite(motor1_EN, HIGH);
   digitalWrite(motor2_EN, HIGH);
-
-//calculate PID
-  
-
 }
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//FUNCTIONS: 
 
 void init_motors()
 {
@@ -373,6 +285,66 @@ void setBrakes(int m1Brake, int m2Brake){
   setM2Brake(m2Brake);
 }
 
+void receive_data(){
+
+      if(Serial.available()>2){
+      buff[0]=Serial.read();
+      if(buff[0]=='d'){
+        turn=Serial.parseInt();
+        turn=-turn;
+        dir=Serial.parseInt();
+        dir=map(dir, -150, 150, -6, 6);
+      }
+    else{
+       
+      if(buff[0]=='s'){
+        buff[0]=Serial.read();
+          if(buff[0]=='p'){
+          P_gain=Serial.parseInt();
+          Serial.print("P_gain set to ");
+          Serial.println(P_gain);
+          }
+          else if(buff[0]=='d'){
+            D_gain=Serial.parseInt();
+            Serial.print("D_gain set to ");
+            Serial.println(D_gain);
+          }
+          else if(buff[0]=='i'){
+            I_gain=Serial.parseInt();
+            Serial.print("I_gain set to ");
+            Serial.println(I_gain);
+          }
+          else if(buff[0]=='o'){
+            offset=Serial.parseInt();
+            Serial.print("offset set to ");
+            Serial.println(offset);
+          }
+          else if(buff[0]=='l'||buff[0]=='r'){
+            turn_amount=Serial.parseInt();
+            Serial.print("Turn amount set to ");
+            Serial.println(turn_amount);
+          }
+          else if(buff[0]=='f'||buff[0]=='b'){
+            direction_amount=Serial.parseInt();
+            Serial.print("Direction amount set to ");
+            Serial.println(direction_amount);
+          } 
+          else if(buff[0]=='z'){
+            direction_amount=0;
+            Serial.print("Direction amount set to 0");
+          }
+          else if(buff[0]=='l'){
+            remap_limit=Serial.parseInt();
+            Serial.print("remap limit set to");
+            Serial.println(remap_limit);
+          }
+          
+      }
+    }     
+  }
+  
+}
+
 void gyro_init(){
    #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
         Wire.begin();
@@ -420,4 +392,29 @@ void gyro_init(){
     }
 
 
+}
+
+void calc_balance_PID(){
+  
+        P=(ypr[2]+(setpoint_offset))*100+dir;
+        I = I + last_P;
+        D=P-last_P;
+        if(P > 10 && P < 10) I = 0;
+        if(I > 200) I = 50;
+        if(I < -200) I = -50;
+        speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
+        motor_left=speed-turn;
+        motor_right=speed+turn;
+        last_P = P;
+}
+
+void calc_setpoint_PID(){
+          if(remap_counter>remap_limit){
+          setpoint_offset=setpoint_offset+0.01;
+          remap_counter=0;
+        }
+        else if(remap_counter<-remap_limit){
+          setpoint_offset=setpoint_offset-0.01;
+          remap_counter=0;
+        }
 }
