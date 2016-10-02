@@ -9,6 +9,7 @@ Different PIDs:
 	
 ToDo:
 
+	*Try this PID library https://github.com/br3ttb/Arduino-PID-Library/blob/master/README.txt
 	*Enable zeroing function for setpoint finding, so that when the machine stops for long enough, it will not start drifting in the other direction.
 	*figure out a way (electronical preffered, mechanically different connections otherwise) to connect UNO and motor driver as a shield while still being able to use pin 2)
 	EDIT: found a neat mechanical and aesthetical way to choose which pins to use
