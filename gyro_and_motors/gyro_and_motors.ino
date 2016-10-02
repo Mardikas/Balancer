@@ -83,8 +83,10 @@ int dir;
 int turn_amount;
 int direction_amount;
 int remap_counter=0;
-int remap_limit=100;
+int remap_normalise_counter=0;
+int remap_limit=10;
 float setpoint_offset=0;
+int max_i=100;
 unsigned long controller_rst_timer;
 
 void setup() {
@@ -92,8 +94,8 @@ void setup() {
 init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
-P_gain=10;
-D_gain=50;
+P_gain=14;
+D_gain=20;
 I_gain=300;
 dir=0;
 turn=0;
@@ -295,6 +297,11 @@ void receive_data(){
           Serial.print("P_gain set to ");
           Serial.println(P_gain);
           }
+          else if(buff[0]=='I'){
+            max_i=Serial.parseInt();
+            Serial.print("max_I set to ");
+            Serial.println(max_i);
+          }
           else if(buff[0]=='d'){
             D_gain=Serial.parseInt();
             Serial.print("D_gain set to ");
@@ -386,12 +393,29 @@ void gyro_init(){
 
 void calc_balance_PID(){
   
-        P=(ypr[2]+(setpoint_offset))*100+dir;
+        P=((((ypr[2]+(setpoint_offset))*1)*((ypr[2]+(setpoint_offset))*1)))*1000;
+        
+        if((ypr[2]+setpoint_offset)<0){
+          P=-P;
+        }
         I = I + last_P;
         D=P-last_P;
-        if(P > 10 && P < 10) I = 0;
-        if(I > 200) I = 50;
-        if(I < -200) I = -50;
+        if(P > 5 && P < 5) I = 0;
+
+        //dissipate I
+        if(P<0){
+          if(P>last_P){
+            I=I-I/10;
+          }
+        }
+        if(P>0){
+          if(P<last_P){
+            I=I-I/10;
+          }
+        }
+        
+        if(I > max_i) I = max_i;
+        if(I < -max_i) I = -max_i;
         speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
         motor_left=speed-turn;
         motor_right=speed+turn;
@@ -399,14 +423,17 @@ void calc_balance_PID(){
 }
 
 void calc_setpoint_PID(){
-  if(speed>0){
+  if(speed>10){
        remap_counter++;
     }
-   else if(speed<0){
+   else if(speed<-10){
       remap_counter--;
      }
+     else{
+      remap_normalise_counter++;
+     }
      //second option for calc. setpoint:
-      
+      /*
       remap_counter=remap_counter+speed;
 
       if(remap_counter>remap_limit){
@@ -417,15 +444,23 @@ void calc_setpoint_PID(){
         setpoint_offset=setpoint_offset-0.01;
         remap_counter=0;
       }
+      */
       
-      /*
           if(remap_counter>remap_limit){
           setpoint_offset=setpoint_offset+0.01;
           remap_counter=0;
+          remap_normalise_counter=0;
         }
         else if(remap_counter<-remap_limit){
           setpoint_offset=setpoint_offset-0.01;
           remap_counter=0;
+          remap_normalise_counter=0;
         }
-        */
+        /*else if(remap_normalise_counter>remap_limit||remap_normalise_counter<-remap_limit){
+          setpoint_offset=ypr[2];
+                    remap_counter=0;
+          remap_normalise_counter=0;
+        }*/
+        
+        
 }
