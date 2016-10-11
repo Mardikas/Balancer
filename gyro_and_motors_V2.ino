@@ -71,14 +71,18 @@ int motor2_EN=12;
 int motor_left=0;
 int motor_right=0;
 
+
+
+//Balancing PID related values
 int error, P, D, last_P;
 long I = 0;
 int speed=0;
-
 int I_gain, D_gain;
-
 int P_gain1=3;
 int P_gain2=2;
+int P_gain;
+int max_i=200;
+//
 
 char buff[4];
 float offset;
@@ -90,9 +94,8 @@ int remap_counter=0;
 int remap_normalise_counter=0;
 int remap_limit=10;
 float setpoint_offset=0;
-int max_i=200;
+
 unsigned long controller_rst_timer;
-int P_gain;
 
 void setup() {
   // put your setup code here, to run once:
@@ -108,11 +111,6 @@ turn_amount=100;
 direction_amount=5;
    Serial.begin(9600);
 }
-
-
-
-
-
 
 
 void loop() {
@@ -137,38 +135,17 @@ void loop() {
           setSpeeds(0,0);
         }
         else{
-          calc_balance_PID();
-          //calc_setpoint_PID();
-          setSpeeds(motor_left, motor_right);
+          if(error<20||error>-20){
+            setBrakes(255, 255);
+          }
+          else{
+            calc_balance_PID();
+            //calc_setpoint_PID();
+            setSpeeds(motor_left, motor_right);
+          }
+
         }
 
-        /*
-        if(remap_counter>10){
-          setpoint_offset=setpoint_offset+0.01;
-          remap_counter=0;
-        }
-        else if(remap_counter<-10){
-          setpoint_offset=setpoint_offset-0.01;
-          remap_counter=0;
-        }*/
-        
-
-        
-        //remap_counter=remap_counter+(speed/100);
-
-        
-        /*if(speed>100){
-            P=(ypr[1]-(10/offset))*100+dir ;
-            I = I + last_P;
-            D=P-last_P;
-            if(P > 3 && P < 3) I = 0;
-            if(I > 200) I = 200;
-            if(I < -200) I = -200;
-            speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
-        }*/
-        //error=(((P*P_GAIN)+(D*D_GAIN))/10);
-        
-        //speed=map(error, -1000, 1000, -255, 255);
 
     }
   digitalWrite(motor1_EN, HIGH);
@@ -298,9 +275,14 @@ void receive_data(){
       if(buff[0]=='s'){
         buff[0]=Serial.read();
           if(buff[0]=='p'){
-          P_gain=Serial.parseInt();
-          Serial.print("P_gain set to ");
-          Serial.println(P_gain);
+          P_gain2=Serial.parseInt();
+          Serial.print("P_All set to ");
+          Serial.println(P_gain2);
+          }
+          else if(buff[0]=='P'){
+            P_gain1=Serial.parseInt();
+            Serial.print("P_yleval set to ");
+            Serial.println(P_gain1);
           }
           else if(buff[0]=='I'){
             max_i=Serial.parseInt();
@@ -403,79 +385,15 @@ void calc_balance_PID(){
         if(ypr[2]<0){
           P=-P;
         }
-        
-        
-        /*if((ypr[2]+setpoint_offset)<0){
-          P=-P;
-        }*/
-        //
-        I = I + last_P;
-        //D=P-last_P;
-        if(P > -3 && P < 3 ) I = 0;
-/*
-        //dissipate I
-        if(P<0){
-          if(P>last_P){
-            I=I-I/10;
-          }
-        }
-        if(P>0){
-          if(P<last_P){
-            I=I-I/10;
-          }
-        }*/
-        /*
-        if(I > max_i) I = max_i;
-        if(I < -max_i) I = -max_i;
-        speed = (P*P_gain + (I*100)/I_gain + D*D_gain);
-        */
-        speed=P*P_gain1/P_gain2;
-      // speed=(P*P_gain)+((I*100)/I_gain);
-        motor_left=speed-turn;
-        motor_right=speed+turn;
-        last_P = P;
-}
+        error=P*P_gain1/P_gain2;
+        motor_right=error;
+        motor_left=error;
+        //I+=P;
+        //if(P > -3 && P < 3 ) I = 0;
 
-void calc_setpoint_PID(){
-  if(P>10){
-       remap_counter++;
-    }
-   else if(P<-10){
-      remap_counter--;
-     }
-     else{
-      remap_normalise_counter++;
-     }
-     //second option for calc. setpoint:
-      /*
-      remap_counter=remap_counter+speed;
-
-      if(remap_counter>remap_limit){
-        setpoint_offset=setpoint_offset+0.01;
-        remap_counter=0;
-      }
-      if(remap_counter<-remap_limit){
-        setpoint_offset=setpoint_offset-0.01;
-        remap_counter=0;
-      }
-      */
       
-          if(remap_counter>remap_limit){
-          setpoint_offset=setpoint_offset+0.01;
-          remap_counter=0;
-          remap_normalise_counter=0;
-        }
-        else if(remap_counter<-remap_limit){
-          setpoint_offset=setpoint_offset-0.01;
-          remap_counter=0;
-          remap_normalise_counter=0;
-        }
-        /*else if(remap_normalise_counter>remap_limit||remap_normalise_counter<-remap_limit){
-          setpoint_offset=ypr[2];
-                    remap_counter=0;
-          remap_normalise_counter=0;
-        }*/
+
+
         
         
 }
-
