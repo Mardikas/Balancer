@@ -77,9 +77,12 @@ int motor_right=0;
 int error, P, D, last_P;
 long I = 0;
 int speed=0;
-int I_gain, D_gain;
-int P_gain1=3;
-int P_gain2=2;
+int I_gain_num = 8;
+int I_gain_den = 10;
+int D_gain_num = 550;
+int D_gain_den = 10;
+int P_gain_num=200;//numenator
+int P_gain_den=10;//denominator
 int P_gain;
 int max_i=200;
 //
@@ -103,13 +106,12 @@ init_motors();
    gyro_init();
    P=I=D=error=last_P=0;
 
-D_gain=3;
-I_gain=100;
 dir=0;
 turn=0;
 turn_amount=100;
 direction_amount=5;
    Serial.begin(9600);
+   delay(2000);
 }
 
 
@@ -134,15 +136,14 @@ void loop() {
           setpoint_offset=0;
           setSpeeds(0,0);
         }
+        
         else{
-          if(error<20||error>-20){
-            setBrakes(255, 255);
-          }
-          else{
-            calc_balance_PID();
+          calc_balance_PID();
+
+            //setBrakes(0,0);
             //calc_setpoint_PID();
             setSpeeds(motor_left, motor_right);
-          }
+          
 
         }
 
@@ -275,29 +276,39 @@ void receive_data(){
       if(buff[0]=='s'){
         buff[0]=Serial.read();
           if(buff[0]=='p'){
-          P_gain2=Serial.parseInt();
-          Serial.print("P_All set to ");
-          Serial.println(P_gain2);
+          P_gain_num=Serial.parseInt();
+          Serial.print("P_numerator set to ");
+          Serial.println(P_gain_num);
           }
           else if(buff[0]=='P'){
-            P_gain1=Serial.parseInt();
-            Serial.print("P_yleval set to ");
-            Serial.println(P_gain1);
+            P_gain_den=Serial.parseInt();
+            Serial.print("P_denominator set to ");
+            Serial.println(P_gain_den);
           }
           else if(buff[0]=='I'){
             max_i=Serial.parseInt();
             Serial.print("max_I set to ");
             Serial.println(max_i);
           }
-          else if(buff[0]=='d'){
-            D_gain=Serial.parseInt();
-            Serial.print("D_gain set to ");
-            Serial.println(D_gain);
+          else if(buff[0]=='D'){
+            D_gain_den=Serial.parseInt();
+            Serial.print("D_gain_denominator set to ");
+            Serial.println(D_gain_den);
+          }
+          else if(buff[0]=='I'){
+            I_gain_den=Serial.parseInt();
+            Serial.print("I_gain_denominator set to ");
+            Serial.println(I_gain_den);
+          }
+                    else if(buff[0]=='d'){
+            D_gain_num=Serial.parseInt();
+            Serial.print("D_gain_numenator set to ");
+            Serial.println(D_gain_num);
           }
           else if(buff[0]=='i'){
-            I_gain=Serial.parseInt();
-            Serial.print("I_gain set to ");
-            Serial.println(I_gain);
+            I_gain_num=Serial.parseInt();
+            Serial.print("I_gain_numenator set to ");
+            Serial.println(I_gain_num);
           }
           else if(buff[0]=='o'){
             offset=Serial.parseInt();
@@ -380,12 +391,41 @@ void gyro_init(){
 
 void calc_balance_PID(){
   
+        //calc P
         P=(ypr[2]+(setpoint_offset))*100;
-        P=P*P;
-        if(ypr[2]<0){
+        //P=P;
+        /*if(ypr[2]<0){
           P=-P;
+        }*/
+        if(P>25){
+          P=25;
         }
-        error=P*P_gain1/P_gain2;
+        else if(P<-25){
+          P=-25;
+        }
+        //calc I
+        I+=P;
+        if(P>-2&&P<2) I=0;
+        
+        else{
+          if((I*I_gain_num/I_gain_den)>255){
+            (I=255*I_gain_num/I_gain_den)+1;
+          }
+          else if((I*I_gain_num/I_gain_den)<-255){
+           I=-((255*I_gain_num/I_gain_den)-1
+           
+           );
+          }
+        }
+
+
+        //calc D
+        D=P-last_P;
+        
+        error=(P*P_gain_num/P_gain_den) + (I*I_gain_num/I_gain_den) + (D*D_gain_num/D_gain_den);
+        
+        last_P=P;
+        
         motor_right=error;
         motor_left=error;
         //I+=P;
