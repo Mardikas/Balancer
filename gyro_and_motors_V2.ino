@@ -1,6 +1,6 @@
-//Somewhat ok PID settings: 9;10;500
-//Even more stable: 16;50;(?)500(?)
-//way better PID settings: 15;100;50
+//Somewhat ok PID settings: 130/10, 13/20, 90/10
+//Even more stable:  135; 50; 16
+//way better PID settings (IT ACTUALLY STAYS UPRIGHT): 100/10; 16/40; 55/10 
 
 #include <PWM.h>
 
@@ -17,8 +17,6 @@
 
 #define MAX 255
 #define ANGLE_MECHANICAL_CALIBRATION 0.1
-#define P_GAIN 1 //80;150 on somewhat twerking
-#define D_GAIN 1000
 
 MPU6050 mpu;
 
@@ -77,13 +75,12 @@ int motor_right=0;
 int error, P, D, last_P;
 long I = 0;
 int speed=0;
-int I_gain_num = 8;
-int I_gain_den = 10;
-int D_gain_num = 550;
+int I_gain_num = 16;
+int I_gain_den = 40;
+int D_gain_num = 90;
 int D_gain_den = 10;
-int P_gain_num=200;//numenator
+int P_gain_num=140;//numenator
 int P_gain_den=10;//denominator
-int P_gain;
 int max_i=200;
 //
 
@@ -95,7 +92,7 @@ int turn_amount;
 int direction_amount;
 int remap_counter=0;
 int remap_normalise_counter=0;
-int remap_limit=10;
+int remap_limit=50;
 float setpoint_offset=0;
 
 unsigned long controller_rst_timer;
@@ -131,23 +128,19 @@ void loop() {
             mpu.dmpGetQuaternion(&q, fifoBuffer);
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-            
+
+
+        //If robot is lying down, stop the motors
         if(ypr[2]>1||ypr[2]<(-1)){
           setpoint_offset=0;
           setSpeeds(0,0);
         }
-        
+        //if it's not horisontal: DRIVE and BALANCE! :)
         else{
           calc_balance_PID();
-
-            //setBrakes(0,0);
-            //calc_setpoint_PID();
+          //calc_setpoint_PID();
             setSpeeds(motor_left, motor_right);
-          
-
         }
-
-
     }
   digitalWrite(motor1_EN, HIGH);
   digitalWrite(motor2_EN, HIGH);
@@ -285,11 +278,6 @@ void receive_data(){
             Serial.print("P_denominator set to ");
             Serial.println(P_gain_den);
           }
-          else if(buff[0]=='I'){
-            max_i=Serial.parseInt();
-            Serial.print("max_I set to ");
-            Serial.println(max_i);
-          }
           else if(buff[0]=='D'){
             D_gain_den=Serial.parseInt();
             Serial.print("D_gain_denominator set to ");
@@ -405,9 +393,15 @@ void calc_balance_PID(){
         }
         //calc I
         I+=P;
-        if(P>-2&&P<2) I=0;
+        /*if(P>-3&&P<3) I=0;
+        else if(P<0&&last_P>0){
+          I=0;
+        }
+        else if(P>0&&last_P<0){
+          I=0;
+        }*/
         
-        else{
+        
           if((I*I_gain_num/I_gain_den)>255){
             (I=255*I_gain_num/I_gain_den)+1;
           }
@@ -416,24 +410,38 @@ void calc_balance_PID(){
            
            );
           }
-        }
+        
 
 
         //calc D
         D=P-last_P;
-        
+
+        //calc Total error
         error=(P*P_gain_num/P_gain_den) + (I*I_gain_num/I_gain_den) + (D*D_gain_num/D_gain_den);
-        
+
+
+        //remember last error
         last_P=P;
-        
+
+        //assign total corrections to motors
         motor_right=error;
         motor_left=error;
-        //I+=P;
-        //if(P > -3 && P < 3 ) I = 0;
+}
 
-      
+void calc_setpoint_PID(){
+  if(error<-3){
+    remap_counter--;
+  }
+  else if(error>3){
+    remap_counter++;
+  }
 
-
-        
-        
+  if(remap_counter>remap_limit){
+    setpoint_offset=setpoint_offset+0.01;
+    remap_counter=0;
+  }
+  else if(remap_counter<-remap_limit){
+    setpoint_offset=setpoint_offset-0.01;
+    remap_counter=0;
+  }
 }
