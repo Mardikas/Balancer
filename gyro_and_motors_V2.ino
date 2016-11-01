@@ -1,7 +1,10 @@
 //Somewhat ok PID settings: 130/10, 13/20, 90/10
 //Even more stable:  135; 50; 16
+
 //way better PID settings (IT ACTUALLY STAYS UPRIGHT): 100/10; 16/40; 55/10 
 
+
+//Last PID: 140/10; 16/40; 120/10
 #include <PWM.h>
 
 #include "I2Cdev.h"
@@ -69,19 +72,32 @@ int motor2_EN=12;
 int motor_left=0;
 int motor_right=0;
 
+int avgPWM = 0;
+int avgPWM_array[10];
+int avgPWM_counter=0;
+
 
 
 //Balancing PID related values
 int error, P, D, last_P;
 long I = 0;
 int speed=0;
-int I_gain_num = 16;
+int I_gain_num = 33;
 int I_gain_den = 40;
-int D_gain_num = 90;
+int D_gain_num = 550;
 int D_gain_den = 10;
-int P_gain_num=140;//numenator
+int P_gain_num= 209;//numenator
 int P_gain_den=10;//denominator
 int max_i=200;
+int target_PWM=0;
+
+//
+//setpoint PID related values
+int stp_error=0;
+int last_stp_error=0;
+long int stp_I=0;
+int stp_P=0;
+int stp_D=0;
 //
 
 char buff[4];
@@ -92,8 +108,8 @@ int turn_amount;
 int direction_amount;
 int remap_counter=0;
 int remap_normalise_counter=0;
-int remap_limit=50;
-float setpoint_offset=0;
+int remap_limit=10;
+int setpoint_offset=0;
 
 unsigned long controller_rst_timer;
 
@@ -107,13 +123,18 @@ dir=0;
 turn=0;
 turn_amount=100;
 direction_amount=5;
+
+//zero avgPWM
+for(avgPWM_counter=0;avgPWM_counter<9;avgPWM_counter++){
+  avgPWM_array[avgPWM_counter]=0;
+}
+avgPWM_counter=0;
    Serial.begin(9600);
    delay(2000);
 }
 
 
 void loop() {
-  delay(1);
     receive_data();
 
   // put your main code here, to run repeatedly:
@@ -123,6 +144,7 @@ void loop() {
         mpu.resetFIFO();
     } else if (mpuIntStatus & 0x02) {
         while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+        while((millis()%5)!=0);
         mpu.getFIFOBytes(fifoBuffer, packetSize);
         fifoCount -= packetSize;
             mpu.dmpGetQuaternion(&q, fifoBuffer);
@@ -134,12 +156,14 @@ void loop() {
         if(ypr[2]>1||ypr[2]<(-1)){
           setpoint_offset=0;
           setSpeeds(0,0);
+          I=0;
         }
         //if it's not horisontal: DRIVE and BALANCE! :)
         else{
+          calc_setpoint_PID();
           calc_balance_PID();
-          //calc_setpoint_PID();
-            setSpeeds(motor_left, motor_right);
+          
+            setSpeeds(motor_left+turn+target_PWM, motor_right-turn+target_PWM);
         }
     }
   digitalWrite(motor1_EN, HIGH);
@@ -260,9 +284,9 @@ void receive_data(){
       buff[0]=Serial.read();
       if(buff[0]=='d'){
         turn=Serial.parseInt();
-        turn=-turn;
+        turn=turn/2;
         dir=Serial.parseInt();
-        dir=map(dir, -150, 150, -6, 6);
+        dir=map(dir, -512, 512, -100, 100);
       }
     else{
        
@@ -298,6 +322,7 @@ void receive_data(){
             Serial.print("I_gain_numenator set to ");
             Serial.println(I_gain_num);
           }
+
           else if(buff[0]=='o'){
             offset=Serial.parseInt();
             Serial.print("offset set to ");
@@ -380,7 +405,7 @@ void gyro_init(){
 void calc_balance_PID(){
   
         //calc P
-        P=(ypr[2]+(setpoint_offset))*100;
+        P=(ypr[2])*100+setpoint_offset;
         //P=P;
         /*if(ypr[2]<0){
           P=-P;
@@ -393,23 +418,8 @@ void calc_balance_PID(){
         }
         //calc I
         I+=P;
-        /*if(P>-3&&P<3) I=0;
-        else if(P<0&&last_P>0){
-          I=0;
-        }
-        else if(P>0&&last_P<0){
-          I=0;
-        }*/
-        
-        
-          if((I*I_gain_num/I_gain_den)>255){
-            (I=255*I_gain_num/I_gain_den)+1;
-          }
-          else if((I*I_gain_num/I_gain_den)<-255){
-           I=-((255*I_gain_num/I_gain_den)-1
-           
-           );
-          }
+        if(I>300) I=300;
+        else if(I<-300) I=-300;
         
 
 
@@ -419,16 +429,22 @@ void calc_balance_PID(){
         //calc Total error
         error=(P*P_gain_num/P_gain_den) + (I*I_gain_num/I_gain_den) + (D*D_gain_num/D_gain_den);
 
-
+        if(error>255){
+          error=255;
+        }
+        else if(error<-255){
+          error=-255;
+        }
         //remember last error
         last_P=P;
 
         //assign total corrections to motors
-        motor_right=error;
-        motor_left=error;
+        motor_right=error+dir;
+        motor_left=error+dir;
 }
 
 void calc_setpoint_PID(){
+  /*
   if(error<-3){
     remap_counter--;
   }
@@ -437,11 +453,47 @@ void calc_setpoint_PID(){
   }
 
   if(remap_counter>remap_limit){
-    setpoint_offset=setpoint_offset+0.01;
+    setpoint_offset=setpoint_offset+0.001;
     remap_counter=0;
   }
   else if(remap_counter<-remap_limit){
-    setpoint_offset=setpoint_offset-0.01;
+    setpoint_offset=setpoint_offset-0.001;
     remap_counter=0;
   }
+  */
+  /*
+    if(avgPWM_counter>9){
+      avgPWM_counter=0;
+    }
+    avgPWM_array[avgPWM_counter]=error;
+    avgPWM_counter++;
+    avgPWM=0;
+    for(int i=0; i<10; i++){
+      avgPWM+=avgPWM_array[i];
+    }
+    avgPWM=avgPWM/10;
+    setpoint_offset=(avgPWM+target_PWM)/10;
+    */
+
+    /*
+    int stp_error=0;
+    int last_stp_error=0;
+    int stp_I=0;
+    int stp_P=0;*/
+
+    if(target_PWM<0&&error<=0){
+      setpoint_offset=target_PWM/50;
+    }
+    else if(target_PWM>0&&error>=0){
+      setpoint_offset=target_PWM/50;
+    }
+    else{
+      stp_error=(error-target_PWM);
+      stp_I+=stp_error;
+      stp_D=stp_error-last_stp_error;
+      setpoint_offset=stp_error/80+stp_I/10000+stp_D/100;
+      last_stp_error=stp_error;
+    }
+
+
 }
