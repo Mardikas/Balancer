@@ -98,6 +98,10 @@ int last_stp_error=0;
 long int stp_I=0;
 int stp_P=0;
 int stp_D=0;
+
+int stp_P_gain=150;
+int stp_I_gain=2000;
+int stp_D_gain=150;
 //
 
 char buff[4];
@@ -286,16 +290,16 @@ void receive_data(){
         turn=Serial.parseInt();
         turn=turn/2;
         dir=Serial.parseInt();
-        dir=map(dir, -512, 512, -100, 100);
+        target_PWM=map(dir, -512, 512, -150, 150);
       }
     else{
        
       if(buff[0]=='s'){
         buff[0]=Serial.read();
           if(buff[0]=='p'){
-          P_gain_num=Serial.parseInt();
-          Serial.print("P_numerator set to ");
-          Serial.println(P_gain_num);
+            P_gain_num=Serial.parseInt();
+            Serial.print("P_numerator set to ");
+            Serial.println(P_gain_num);
           }
           else if(buff[0]=='P'){
             P_gain_den=Serial.parseInt();
@@ -322,31 +326,25 @@ void receive_data(){
             Serial.print("I_gain_numenator set to ");
             Serial.println(I_gain_num);
           }
-
-          else if(buff[0]=='o'){
-            offset=Serial.parseInt();
-            Serial.print("offset set to ");
-            Serial.println(offset);
-          }
-          else if(buff[0]=='l'||buff[0]=='r'){
-            turn_amount=Serial.parseInt();
-            Serial.print("Turn amount set to ");
-            Serial.println(turn_amount);
-          }
-          else if(buff[0]=='f'||buff[0]=='b'){
-            direction_amount=Serial.parseInt();
-            Serial.print("Direction amount set to ");
-            Serial.println(direction_amount);
-          } 
-          else if(buff[0]=='z'){
-            direction_amount=0;
-            Serial.print("Direction amount set to 0");
-          }
           else if(buff[0]=='s'){
-            remap_limit=Serial.parseInt();
-            Serial.print("remap limit set to");
-            Serial.println(remap_limit);
+            buff[0]=Serial.read();
+            if(buff[0]=='p'){
+              stp_P_gain=Serial.parseInt();
+              Serial.print("stp_P_gain set to ");
+              Serial.println(stp_P_gain);
+            }
+            else if(buff[0]=='i'){
+              stp_I_gain=Serial.parseInt();
+              Serial.print("stp_I_gain set to ");
+              Serial.println(stp_I_gain);
+            }
+            else if(buff[0]=='d'){
+              stp_D_gain=Serial.parseInt();
+              Serial.print("stp_D_gain set to ");
+              Serial.println(stp_D_gain);
+            }
           }
+          
           
       }
     }     
@@ -491,7 +489,7 @@ void calc_setpoint_PID(){
       stp_error=(error-target_PWM);
       stp_I+=stp_error;
       stp_D=stp_error-last_stp_error;
-      setpoint_offset=stp_error/80+stp_I/10000+stp_D/100;
+      setpoint_offset=stp_error/stp_P_gain+stp_I/stp_I_gain+stp_D/stp_D_gain;
       last_stp_error=stp_error;
     }
 
