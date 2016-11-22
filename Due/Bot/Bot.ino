@@ -34,24 +34,32 @@ void dmpDataReady() {
 void gyro_init();
 // END OF EVERYTHING GYRO RELATED
 
+//////////////AVG ERROR CALCULATION STUFF////////////
+#include "RunningAverage.h"
+RunningAverage avg_error_array(200);
+void calc_avg_error();
+int avg_error;
+/////////////////////////////////////////////////////
 void calc_balance_PID();
 void calc_setpoint_PID();
 void receive_data();
 void stopIfFault();
 void receive_data();
 
+char safety=0;
+
 //Balancing PID related values
 int error, P, D, last_P;
 long I = 0;
 int speed=0;
-int I_gain_num = 5;
-int I_gain_den = 100;
-int D_gain_num = 90;
-int D_gain_den = 10;
-int P_gain_num= 100;//numenator
-int P_gain_den=10;//denominator
-int max_i=200;
-int target_PWM=100;
+int I_gain_num = 3;
+int I_gain_den = 1000;
+int D_gain_num = 20;
+int D_gain_den = 100;
+int P_gain_num = 70;//numenator
+int P_gain_den = 100;//denominator
+int max_i = 200;
+int target_speed=0;
 
 //
 //setpoint PID related values
@@ -60,8 +68,8 @@ int last_stp_error=0;
 long int stp_I=0;
 int stp_P=0;
 int stp_D=0;
-int stp_P_gain=100;
-int stp_I_gain=5050;
+int stp_P_gain=500;
+int stp_I_gain=6600;
 int stp_D_gain=150;
 
 char buff[4];
@@ -77,6 +85,54 @@ int setpoint_offset=0;
 int motor_left=0;
 int motor_right=0;
 
+/////////////BEGINNING OF MOTOR STUFF/////////////
+#include <Encoder.h>
+
+Encoder motor_left_pos(38, 39);
+Encoder motor_right_pos(40, 41);
+
+int calc_motor_left_PWM();
+int calc_motor_right_PWM();
+
+int check_motor_safety();
+//LEFT MOTOR STUFF
+long motor_left_last_pos  = 0;
+long motor_left_current_pos=0;
+int motor_left_PWM=0;
+int motor_left_current_speed=0;
+int motor_left_target_speed=10;
+
+int motor_left_speed_error=0;
+int motor_left_P=0;
+long motor_left_I=0;
+int motor_left_D=0;
+int motor_left_last_speed_error=0;
+
+int motor_left_P_gain=10;
+int motor_left_I_gain=1;
+int motor_left_D_gain=10;
+
+//RIGHT MOTOR STUFF
+long motor_right_last_pos=0;
+long motor_right_current_pos=0;
+int motor_right_PWM=0;
+int motor_right_current_speed=0;
+int motor_right_target_speed=10;
+
+int motor_right_speed_error=0;
+int motor_right_P=0;
+long motor_right_I=0;
+int motor_right_D=0;
+int motor_right_last_speed_error=0;
+
+int motor_right_P_gain=10;
+int motor_right_I_gain=1;
+int motor_right_D_gain=10;
+
+/////////////////END OF MOTOR STUFF//////////////
+
+void printData();
+
 // ================================================================
 // ===                      INITIAL SETUP                       ===
 // ================================================================
@@ -91,7 +147,7 @@ void setup() {
   turn=0;
   turn_amount=100;
   direction_amount=5;
-  target_PWM=0;
+  target_speed=0;
 
   Serial1.begin(9600);
 }
@@ -120,22 +176,23 @@ void loop() {
         // .
         // .
         while((millis()%5)!=0);
-       Serial.println(ypr[2]);
+       
 
-
-        //If robot is lying down, stop the motors
-        if(ypr[2]>1||ypr[2]<(-1)){
-          setpoint_offset=0;
+        check_safety();
+        if(safety!=0){
           md.setSpeeds(0,0);
-          I=0;
-          stp_I=0;
         }
+        //If robot is lying down, stop the motors
+
         //if it's not horisontal: DRIVE and BALANCE! :)
         else{
+          calc_avg_error();
           calc_setpoint_PID();
           calc_balance_PID();
-          md.setSpeeds(motor_left+turn+target_PWM, motor_right-turn+target_PWM);
+          //md.setSpeeds(motor_left_target_speed+turn+target_PWM, motor_right_target_speed-turn+target_PWM);
+          md.setSpeeds(motor_left_PWM, motor_right_PWM);
         }
+        printData();
     }
 
     // reset interrupt flag and get INT_STATUS byte
@@ -257,9 +314,10 @@ void calc_balance_PID(){
         }
         //calc I
         I+=P;
-        if(I>300) I=300;
+        /*
+        if(I>30000) I=300;
         else if(I<-300) I=-300;
-        
+        */
 
 
         //calc D
@@ -278,27 +336,16 @@ void calc_balance_PID(){
         last_P=P;
 
         //assign total corrections to motors
-        motor_right=error+dir;
-        motor_left=error+dir;
+        motor_right_target_speed=error;
+        motor_left_target_speed=error;
+        motor_right_PWM=calc_motor_right_PWM();
+        motor_left_PWM=calc_motor_left_PWM();
 }
 
 void calc_setpoint_PID(){
 
-    /*if(target_PWM<0&&error<=0){
-      setpoint_offset=target_PWM/50;
-    }
-    else if(target_PWM>0&&error>=0){
-      setpoint_offset=target_PWM/50;
-    }
-    else{
-      stp_error=(error-target_PWM);
-      stp_I+=stp_error;
-      stp_D=stp_error-last_stp_error;
-      setpoint_offset=stp_error/stp_P_gain+stp_I/stp_I_gain+stp_D/stp_D_gain;
-      last_stp_error=stp_error;
-    }*/
-
-          stp_error=(error-target_PWM);
+      //stp_error=(error-target_PWM);
+      stp_error=target_speed-((motor_right_current_speed+motor_left_current_speed)/2);
       stp_I+=stp_error;
       stp_D=stp_error-last_stp_error;
       setpoint_offset=stp_error/stp_P_gain+stp_I/stp_I_gain+stp_D/stp_D_gain;
@@ -329,7 +376,7 @@ void receive_data(){
         turn=Serial1.parseInt();
         turn=turn/2;
         dir=Serial1.parseInt();
-        target_PWM=map(dir, -512, 512, -150, 150);
+        target_speed=map(dir, -512, 512, -150, 150);
       }
     else{
        
@@ -388,4 +435,91 @@ void receive_data(){
       }
     }     
   }
+}
+
+int calc_motor_right_PWM(){
+
+  motor_right_current_pos = motor_right_pos.read();
+  motor_right_current_speed=motor_right_current_pos-motor_right_last_pos;
+  motor_right_last_pos=motor_right_current_pos;
+  
+  motor_right_speed_error=motor_right_target_speed-motor_right_current_speed;
+
+  motor_right_P=motor_right_speed_error*motor_right_P_gain;
+  motor_right_D=(motor_right_speed_error-motor_right_last_speed_error)*motor_right_D_gain;
+  motor_right_I=motor_right_I+motor_right_speed_error;
+  //motor_right_I=motor_right_I*motor_right_I_gain;
+
+  //cap I
+  
+  if(motor_right_I>400){
+    motor_right_I=400;
+  }
+  else if(motor_right_I<-400){
+    motor_right_I=-400;
+  }
+  return (motor_right_P+(motor_right_I*motor_right_I_gain)+motor_right_D);
+}
+
+int calc_motor_left_PWM(){
+
+  motor_left_current_pos = motor_left_pos.read();
+  motor_left_current_speed=motor_left_current_pos-motor_left_last_pos;
+  motor_left_last_pos=motor_left_current_pos;
+  
+  motor_left_speed_error=motor_left_target_speed-motor_left_current_speed;
+
+  motor_left_P=motor_left_speed_error*motor_left_P_gain;
+  motor_left_D=(motor_left_speed_error-motor_left_last_speed_error)*motor_left_D_gain;
+  motor_left_I=motor_left_I+motor_left_speed_error;
+  //motor_left_I=motor_left_I*motor_left_I_gain;
+
+  //cap I
+  
+  if(motor_left_I>400){
+    motor_left_I=400;
+  }
+  else if(motor_left_I<-400){
+    motor_left_I=-400;
+  }
+  return (motor_left_P+(motor_left_I*motor_left_I_gain)+motor_left_D);
+}
+
+void check_safety(){
+  int M1_current = md.getM1CurrentMilliamps();
+  int M2_current = md.getM2CurrentMilliamps();
+  safety=0;
+  if(M2_current>1000&&M1_current<1000){
+    safety=1;
+  }
+  else if(M1_current>1000&&M2_current<1000){
+    safety=2;
+  }
+  else if(M1_current>1000&&M2_current>1000){
+    safety=3;
+  }
+  if(ypr[2]>1||ypr[2]<(-1)){
+    setpoint_offset=0;
+    //md.setSpeeds(0,0);
+    I=0;
+    stp_I=0;
+    safety=4;
+  }
+  /*
+  if(safety>0&&safety<4){
+    md.setSpeeds(0,0);
+    delay(1000);
+  }*/
+}
+
+void calc_avg_error(){
+  avg_error_array.addValue(P);
+  avg_error=avg_error_array.getAverage();
+}
+
+void printData(){
+
+    Serial.print("avg error: ");
+    Serial.println(avg_error);
+
 }
